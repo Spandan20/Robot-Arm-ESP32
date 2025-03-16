@@ -19,8 +19,8 @@ void setup() {
     servo2.attach(SERVO2_PIN, 600, 2400);
     servo1.attach(SERVO1_PIN, 600, 2400);
     
-    Serial.println("Enter command: <servo_number> <angle>");
-    Serial.println("Example: 1 90  (Moves Servo 1 to 90°)");
+    SerialBT.println("Enter command: <servo_number> <angle>");
+    SerialBT.println("Example: 1 90  (Moves Servo 1 to 90°)");
 }
 
 void loop() {
@@ -37,22 +37,22 @@ void loop() {
         switch (servoNum) {
           case 1: 
           servo1.write(angle); 
-          Serial.printf("Servo 1 Moved %d\n",angle); 
+          SerialBT.printf("Servo 1 Moved %d\n",angle); 
           break;
       case 2: 
           servo2.write(angle); 
-          Serial.printf("Servo 2 Moved %d\n",angle); 
+          SerialBT.printf("Servo 2 Moved %d\n",angle); 
           break;
       case 3: 
           servo3.write(angle); 
-          Serial.printf("Servo 3 Moved %d\n",angle); 
+          SerialBT.printf("Servo 3 Moved %d\n",angle); 
           break; 
       case 4: 
           servo4.write(angle);  
-          Serial.printf("Servo 4 Moved %d\n",angle); 
+          SerialBT.printf("Servo 4 Moved %d\n",angle); 
           break;
       default: 
-          Serial.println("Invalid Servo Number!");
+          SerialBT.println("Invalid Servo Number!");
         }
     }
 }
