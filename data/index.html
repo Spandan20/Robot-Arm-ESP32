@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Servo Controller</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .slider-container { margin: 10px; }
+        .slider { width: 80%; }
+        button { margin: 5px; padding: 10px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>ESP32 Servo Controller</h1>
+    
+    <div class="slider-container">
+        <label>Servo 1: <span id="servo1-val">90</span>°</label>
+        <input type="range" id="servo1" class="slider" min="0" max="180" value="90">
+    </div>
+    
+    <div class="slider-container">
+        <label>Servo 2: <span id="servo2-val">90</span>°</label>
+        <input type="range" id="servo2" class="slider" min="0" max="180" value="90">
+    </div>
+    
+    <div class="slider-container">
+        <label>Servo 3: <span id="servo3-val">90</span>°</label>
+        <input type="range" id="servo3" class="slider" min="0" max="180" value="90">
+    </div>
+    
+    <div class="slider-container">
+        <label>Servo 4: <span id="servo4-val">90</span>°</label>
+        <input type="range" id="servo4" class="slider" min="0" max="180" value="90">
+    </div>
+
+    <button id="record-btn">Record</button>
+    <button id="play-btn">Play</button>
+
+    <script>
+        const socket = new WebSocket("ws://YOUR_ESP32_IP:81");
+        let recordedMoves = [];
+        let isRecording = false;
+
+        socket.onopen = () => console.log("Connected to ESP32");
+        socket.onmessage = event => console.log("ESP32:", event.data);
+
+        function updateServo() {
+            let angles = [
+                document.getElementById("servo1").value,
+                document.getElementById("servo2").value,
+                document.getElementById("servo3").value,
+                document.getElementById("servo4").value
+            ];
+
+            // Display current angles
+            document.getElementById("servo1-val").innerText = angles[0];
+            document.getElementById("servo2-val").innerText = angles[1];
+            document.getElementById("servo3-val").innerText = angles[2];
+            document.getElementById("servo4-val").innerText = angles[3];
+
+            // Send data to ESP32
+            socket.send(angles.join(","));
+
+            // Record movement if recording
+            if (isRecording) recordedMoves.push([...angles]);
+        }
+
+        function recordMovement() {
+            recordedMoves = [];
+            isRecording = true;
+            alert("Recording started! Move the servos.");
+        }
+
+        async function playMovements() {
+            isRecording = false;
+            if (recordedMoves.length === 0) {
+                alert("No movements recorded!");
+                return;
+            }
+
+            for (let move of recordedMoves) {
+                socket.send(move.join(","));
+                await new Promise(res => setTimeout(res, 500));
+            }
+            alert("Playback complete!");
+        }
+
+        document.getElementById("record-btn").addEventListener("click", recordMovement);
+        document.getElementById("play-btn").addEventListener("click", playMovements);
+
+        document.querySelectorAll(".slider").forEach(slider => {
+            slider.addEventListener("input", updateServo);
+        });
+    </script>
+</body>
+</html>
