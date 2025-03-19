@@ -3,21 +3,27 @@
 
 const int servo1Pin = 25;  // GPIO for Servo 1
 const int servo2Pin = 26;  // GPIO for Servo 2
+const int servo3Pin = 33;  // GPIO for Servo 2
+const int servo4Pin = 32;  // GPIO for Servo 2
 
 Servo servo1;
 Servo servo2;
+Servo servo3;
+Servo servo4;
 
 AsyncWebServer server(80);
 
 bool isRecording = false;
 bool isReplaying = false;
 unsigned long previousMillis = 0;
-const int replayInterval = 1000;  // Delay between replay movements (in ms)
+const int replayInterval = 100;  // Delay between replay movements (in ms)
 
 // Arrays to store recorded angles
 const int maxSteps = 500;  // Max steps that can be recorded
 int servo1Angles[maxSteps];
 int servo2Angles[maxSteps];
+int servo3Angles[maxSteps];
+int servo4Angles[maxSteps];
 int stepCount = 0;
 int replayIndex = 0;
 
@@ -31,7 +37,7 @@ String getHTML() {
       <style>
         body { text-align: center; font-family: Arial; margin-top: 50px; }
         input[type="range"] { width: 80%; }
-        #angleValue1, #angleValue2 { font-size: 24px; }
+        #angleValue1, #angleValue2, #angleValue3, #angleValue4 { font-size: 24px; }
         button { padding: 12px 24px; font-size: 18px; margin: 10px; cursor: pointer; }
         #recordBtn { background-color: red; color: white; border: none; }
         #replayBtn { background-color: green; color: white; border: none; }
@@ -47,6 +53,14 @@ String getHTML() {
       <h3>Servo 2 Control</h3>
       <input type="range" id="servoSlider2" min="0" max="180" value="90" onchange="updateServo2(this.value)">
       <p>Angle 2: <span id="angleValue2">90</span>°</p>
+
+      <h3>Servo 3 Control</h3>
+      <input type="range" id="servoSlider3" min="0" max="180" value="90" onchange="updateServo3(this.value)">
+      <p>Angle 3: <span id="angleValue3">90</span>°</p>
+
+      <h3>Servo 4 Control</h3>
+      <input type="range" id="servoSlider4" min="0" max="180" value="90" onchange="updateServo4(this.value)">
+      <p>Angle 4: <span id="angleValue4">90</span>°</p>
       
       <button id="recordBtn" onclick="toggleRecord()">Record</button>
       <button id="replayBtn" onclick="replayMovements()">Replay</button>
@@ -65,6 +79,20 @@ String getHTML() {
           document.getElementById("angleValue2").innerText = angle;
           var xhr = new XMLHttpRequest();
           xhr.open("GET", "/servo2?angle=" + angle, true);
+          xhr.send();
+        }
+
+        function updateServo3(angle) {
+          document.getElementById("angleValue3").innerText = angle;
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/servo3?angle=" + angle, true);
+          xhr.send();
+        }
+
+        function updateServo4(angle) {
+          document.getElementById("angleValue4").innerText = angle;
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/servo4?angle=" + angle, true);
           xhr.send();
         }
 
@@ -111,6 +139,8 @@ void setup() {
   // Attach both servos
   servo1.attach(servo1Pin);
   servo2.attach(servo2Pin);
+  servo3.attach(servo3Pin);
+  servo4.attach(servo4Pin);
 
   // Connect to Wi-Fi
   WiFi.begin("SPANDAN 2.4", "Asahakol@1963");
@@ -167,6 +197,41 @@ void setup() {
     request->send(200, "text/plain", "OK");
   });
 
+  server.on("/servo3", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("angle")) {
+      String angleParam = request->getParam("angle")->value();
+      int angle = angleParam.toInt();
+      int currentAngle = servo3.read();
+      smoothMove(servo3, currentAngle, angle, 50, 10);
+      // servo2.write(angle);
+      Serial.printf("Servo 3 angle: %d\n", angle);
+      
+      // Record angle if recording is active
+      if (isRecording && stepCount < maxSteps) {
+        servo3Angles[stepCount] = angle;
+        stepCount++;
+      }
+    }
+    request->send(200, "text/plain", "OK");
+  });
+
+server.on("/servo4", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("angle")) {
+      String angleParam = request->getParam("angle")->value();
+      int angle = angleParam.toInt();
+      int currentAngle = servo4.read();
+      smoothMove(servo4, currentAngle, angle, 10, 10);
+      // servo2.write(angle);
+      Serial.printf("Servo 4 angle: %d\n", angle);
+      
+      // Record angle if recording is active
+      if (isRecording && stepCount < maxSteps) {
+        servo4Angles[stepCount] = angle;
+        stepCount++;
+      }
+    }
+    request->send(200, "text/plain", "OK");
+  });
   // Toggle recording
   server.on("/toggleRecord", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (!isRecording) {
@@ -202,13 +267,17 @@ void loop() {
         // Get current angles
         int currentAngle1 = servo1.read();
         int currentAngle2 = servo2.read();
+        int currentAngle3 = servo3.read();
+        int currentAngle4 = servo4.read();
 
         // Smoothly move to the recorded angles
         smoothMove(servo1, currentAngle1, servo1Angles[replayIndex], 50, 10);
         smoothMove(servo2, currentAngle2, servo2Angles[replayIndex], 50, 10);
+        smoothMove(servo3, currentAngle3, servo3Angles[replayIndex], 50, 10);
+        smoothMove(servo4, currentAngle4, servo4Angles[replayIndex], 10, 10);
 
-        Serial.printf("Replaying step %d: Servo1=%d, Servo2=%d\n", 
-                      replayIndex, servo1Angles[replayIndex], servo2Angles[replayIndex]);
+        Serial.printf("Replaying step %d: Servo1=%d, Servo2=%d\n, Servo3=%d\n, Servo4=%d\n", 
+                      replayIndex, servo1Angles[replayIndex], servo2Angles[replayIndex], servo3Angles[replayIndex], servo4Angles[replayIndex]);
         replayIndex++;
       } else {
         isReplaying = false;
