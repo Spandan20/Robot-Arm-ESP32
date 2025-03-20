@@ -1,5 +1,8 @@
 #include <ESPAsyncWebServer.h>
 #include <ESP32Servo.h>
+#include <ArduinoJson.h>
+#include <SPIFFS.h>
+
 
 const int servo1Pin = 25;  // GPIO for Servo 1
 const int servo2Pin = 26;  // GPIO for Servo 2
@@ -117,6 +120,60 @@ String getHTML() {
           xhr.open("GET", "/replay", true);
           xhr.send();
         }
+
+        function saveSequence() {
+          let sequenceName = document.getElementById("sequenceName").value;
+          if (sequenceName === "") {
+            alert("Please enter a sequence name.");
+            return;
+          }
+          sendRequest("/save?name=" + sequenceName);
+          alert("Sequence Saved: " + sequenceName);
+          loadSequenceList();
+        }
+
+        function loadSequence() {
+          let sequenceName = document.getElementById("sequenceList").value;
+          if (sequenceName === "") {
+            alert("Please select a sequence to load.");
+            return;
+          }
+          sendRequest("/load?name=" + sequenceName);
+          alert("Sequence Loaded: " + sequenceName);
+        }
+
+        function deleteSequence() {
+          let sequenceName = document.getElementById("sequenceList").value;
+          if (sequenceName === "") {
+            alert("Please select a sequence to delete.");
+            return;
+          }
+          sendRequest("/delete?name=" + sequenceName);
+          alert("Sequence Deleted: " + sequenceName);
+          loadSequenceList();
+        }
+
+        function loadSequenceList() {
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/listSequences", true);
+          xhr.onload = function () {
+            if (xhr.status === 200) {
+              let sequences = JSON.parse(xhr.responseText);
+              let sequenceList = document.getElementById("sequenceList");
+              sequenceList.innerHTML = "";
+              sequences.forEach((sequence) => {
+                let option = document.createElement("option");
+                option.value = sequence;
+                option.innerText = sequence;
+                sequenceList.appendChild(option);
+              });
+            }
+          };
+          xhr.send();
+        }
+
+        // Load sequence list on page load
+        window.onload = loadSequenceList;
       </script>
     </body>
     </html>
@@ -133,8 +190,105 @@ void smoothMove(Servo &servo, int startAngle, int targetAngle, int steps, int de
 }
 
 
+void saveSequence(String sequenceName) {
+  if (stepCount == 0) {
+    Serial.println("No sequence recorded to save.");
+    return;
+  }
+
+  String fileName = "/" + sequenceName + ".json";
+  File file = SPIFFS.open(fileName, FILE_WRITE);
+  if (!file) {
+    Serial.println("Failed to create file");
+    return;
+  }
+
+  // Create JSON array
+  DynamicJsonDocument doc(2048);
+  JsonArray servo1Arr = doc.createNestedArray("servo1");
+  JsonArray servo2Arr = doc.createNestedArray("servo2");
+  JsonArray servo3Arr = doc.createNestedArray("servo3");
+  JsonArray servo4Arr = doc.createNestedArray("servo4");
+
+  for (int i = 0; i < stepCount; i++) {
+    servo1Arr.add(servo1Angles[i]);
+    servo2Arr.add(servo2Angles[i]);
+    servo3Arr.add(servo3Angles[i]);
+    servo4Arr.add(servo4Angles[i]);
+  }
+
+  if (serializeJson(doc, file) == 0) {
+    Serial.println("Failed to write to file");
+  } else {
+    Serial.println("Sequence saved successfully!");
+  }
+
+  file.close();
+}
+
+
+void loadSequence(String sequenceName) {
+  String fileName = "/" + sequenceName + ".json";
+  File file = SPIFFS.open(fileName, FILE_READ);
+  if (!file) {
+    Serial.println("Failed to open file for reading");
+    return;
+  }
+
+  DynamicJsonDocument doc(2048);
+  DeserializationError error = deserializeJson(doc, file);
+  if (error) {
+    Serial.println("Failed to parse JSON");
+    return;
+  }
+
+  JsonArray servo1Arr = doc["servo1"];
+  JsonArray servo2Arr = doc["servo2"];
+  JsonArray servo3Arr = doc["servo3"];
+  JsonArray servo4Arr = doc["servo4"];
+
+  stepCount = servo1Arr.size();
+  for (int i = 0; i < stepCount; i++) {
+    servo1Angles[i] = servo1Arr[i];
+    servo2Angles[i] = servo2Arr[i];
+    servo3Angles[i] = servo3Arr[i];
+    servo4Angles[i] = servo4Arr[i];
+  }
+
+  Serial.println("Sequence loaded successfully!");
+  file.close();
+}
+
+void deleteSequence(String sequenceName) {
+  String fileName = "/" + sequenceName + ".json";
+  if (SPIFFS.remove(fileName)) {
+    Serial.println("Sequence deleted successfully.");
+  } else {
+    Serial.println("Failed to delete sequence.");
+  }
+}
+
+void listSequences() {
+  File root = SPIFFS.open("/");
+  File file = root.openNextFile();
+
+  while (file) {
+    Serial.print("File: ");
+    Serial.println(file.name());
+    file = root.openNextFile();
+  }
+}
+
+
 void setup() {
   Serial.begin(115200);
+
+  // Initialize SPIFFS
+  if (!SPIFFS.begin(true)) {
+    Serial.println("An error occurred while mounting SPIFFS");
+    return;
+  }
+  Serial.println("SPIFFS mounted successfully");
 
   // Attach both servos
   servo1.attach(servo1Pin);
@@ -264,6 +418,49 @@ server.on("/servo4", HTTP_GET, [](AsyncWebServerRequest *request) {
     }
     request->send(200, "text/plain", "OK");
   });
+
+  server.on("/save", HTTP_GET, [](AsyncWebServerRequest *request) {
+  if (request->hasParam("name")) {
+    String name = request->getParam("name")->value();
+    saveSequence(name);
+  }
+  request->send(200, "text/plain", "Sequence Saved");
+});
+
+server.on("/load", HTTP_GET, [](AsyncWebServerRequest *request) {
+  if (request->hasParam("name")) {
+    String name = request->getParam("name")->value();
+    loadSequence(name);
+  }
+  request->send(200, "text/plain", "Sequence Loaded");
+});
+
+server.on("/delete", HTTP_GET, [](AsyncWebServerRequest *request) {
+  if (request->hasParam("name")) {
+    String name = request->getParam("name")->value();
+    deleteSequence(name);
+  }
+  request->send(200, "text/plain", "Sequence Deleted");
+});
+
+server.on("/listSequences", HTTP_GET, [](AsyncWebServerRequest *request) {
+  File root = SPIFFS.open("/");
+  File file = root.openNextFile();
+  String fileList = "[";
+  while (file) {
+    String fileName = String(file.name()).substring(1); // Remove "/"
+    if (fileName.endsWith(".json")) {
+      if (fileList.length() > 1) {
+        fileList += ",";
+      }
+      fileList += "\"" + fileName.substring(0, fileName.length() - 5) + "\""; // Remove .json
+    }
+    file = root.openNextFile();
+  }
+  fileList += "]";
+  request->send(200, "application/json", fileList);
+});
+
 
   server.begin();
 }
