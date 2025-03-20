@@ -142,6 +142,17 @@ void setup() {
   servo3.attach(servo3Pin);
   servo4.attach(servo4Pin);
 
+  //Set initial angles
+  smoothMove(servo1, 80, 90, 50, 10);
+  delay(500);
+  smoothMove(servo2, 110, 120, 50, 10);
+  delay(500);
+  smoothMove(servo3, 0, 0, 50, 10);
+  delay(500);
+  smoothMove(servo4, 20, 40, 10, 10);
+  delay(500);
+
+
   // Connect to Wi-Fi
   WiFi.begin("SPANDAN 2.4", "Asahakol@1963");
   Serial.print("Connecting to Wi-Fi");
@@ -203,7 +214,7 @@ void setup() {
       int angle = angleParam.toInt();
       int currentAngle = servo3.read();
       smoothMove(servo3, currentAngle, angle, 50, 10);
-      // servo2.write(angle);
+      // servo3.write(angle);
       Serial.printf("Servo 3 angle: %d\n", angle);
       
       // Record angle if recording is active
@@ -220,8 +231,8 @@ server.on("/servo4", HTTP_GET, [](AsyncWebServerRequest *request) {
       String angleParam = request->getParam("angle")->value();
       int angle = angleParam.toInt();
       int currentAngle = servo4.read();
-      smoothMove(servo4, currentAngle, angle, 10, 10);
-      // servo2.write(angle);
+      // smoothMove(servo4, currentAngle, angle, 10, 10);
+      servo4.write(angle);
       Serial.printf("Servo 4 angle: %d\n", angle);
       
       // Record angle if recording is active
@@ -272,9 +283,13 @@ void loop() {
 
         // Smoothly move to the recorded angles
         smoothMove(servo1, currentAngle1, servo1Angles[replayIndex], 50, 10);
+        delay(1000);
         smoothMove(servo2, currentAngle2, servo2Angles[replayIndex], 50, 10);
+        delay(1000);
         smoothMove(servo3, currentAngle3, servo3Angles[replayIndex], 50, 10);
+        delay(1000);
         smoothMove(servo4, currentAngle4, servo4Angles[replayIndex], 10, 10);
+        delay(1000);
 
         Serial.printf("Replaying step %d: Servo1=%d, Servo2=%d\n, Servo3=%d\n, Servo4=%d\n", 
                       replayIndex, servo1Angles[replayIndex], servo2Angles[replayIndex], servo3Angles[replayIndex], servo4Angles[replayIndex]);
