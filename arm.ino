@@ -44,6 +44,8 @@ String getHTML() {
         button { padding: 12px 24px; font-size: 18px; margin: 10px; cursor: pointer; }
         #recordBtn { background-color: red; color: white; border: none; }
         #replayBtn { background-color: green; color: white; border: none; }
+        #saveBtn, #loadBtn, #deleteBtn { background-color: blue; color: white; border: none; }
+        
       </style>
     </head>
     <body>
@@ -67,6 +69,15 @@ String getHTML() {
       
       <button id="recordBtn" onclick="toggleRecord()">Record</button>
       <button id="replayBtn" onclick="replayMovements()">Replay</button>
+
+      <h3>Save/Load Sequence</h3>
+      <input type="text" id="sequenceName" placeholder="Enter sequence name">
+      <button id="saveBtn" onclick="saveSequence()">Save Sequence</button>
+
+      <h3>Load/Delete Sequence</h3>
+      <select id="sequenceList"></select>
+      <button id="loadBtn" onclick="loadSequence()">Load Sequence</button>
+      <button id="deleteBtn" onclick="deleteSequence()">Delete Sequence</button>
       
       <script>
         let isRecording = false;
