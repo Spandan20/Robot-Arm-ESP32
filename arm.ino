@@ -132,6 +132,12 @@ String getHTML() {
           xhr.send();
         }
 
+        function sendRequest(url) {
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", url, true);
+          xhr.send();
+        }
+
         function saveSequence() {
           let sequenceName = document.getElementById("sequenceName").value;
           if (sequenceName === "") {
